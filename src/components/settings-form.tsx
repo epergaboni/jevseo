@@ -84,11 +84,17 @@ export function SettingsForm({ initial }: { initial: SettingsState }) {
   async function runTest(service: "typesafe" | "dataforseo") {
     setTests((t) => ({ ...t, [service]: "pending" }));
     try {
-      const res = await apiFetch("/api/settings/test", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ service }),
-      });
+      // Drafts are sent too, so testing a key you have just pasted checks that
+      // key rather than whatever was saved before it.
+      const res = await apiFetch(
+        "/api/settings/test",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ service }),
+        },
+        drafts,
+      );
       const result = (await res.json()) as TestResult;
       setTests((t) => ({ ...t, [service]: result }));
     } catch {
@@ -133,6 +139,7 @@ export function SettingsForm({ initial }: { initial: SettingsState }) {
         {SERVICES.map((service) => {
           const keys = CREDENTIAL_KEYS.filter((k) => initial.meta[k].service === service.id);
           const test = tests[service.id];
+          const unsaved = keys.some((k) => (drafts[k] ?? "").trim() !== "");
 
           return (
             <Card key={service.id} className="p-6">
@@ -236,6 +243,11 @@ export function SettingsForm({ initial }: { initial: SettingsState }) {
                 >
                   {test === "pending" ? "Testing…" : "Test connection"}
                 </button>
+                {unsaved && (
+                  <p className="text-xs leading-relaxed text-ink-3">
+                    Testing what is typed above. Press “Save in this browser” to keep it.
+                  </p>
+                )}
                 {test && test !== "pending" && (
                   <div className="min-w-0 flex-1">
                     <p className={`text-xs ${test.ok ? "text-good-text" : "text-bad-text"}`}>

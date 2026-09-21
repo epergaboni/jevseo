@@ -63,9 +63,24 @@ export function clearLocalCredentials(): void {
   invalidate();
 }
 
-export function credentialHeaders(): Record<string, string> {
+/**
+ * Headers for the credentials this browser holds, with anything typed into the
+ * settings page taking precedence. The overrides matter: a key pasted into a
+ * field but not yet saved is still what the visitor expects a connection test
+ * to check, and testing the old value instead reads as the feature being
+ * broken.
+ */
+export function credentialHeaders(
+  overrides: Partial<Record<CredentialKey, string>> = {},
+): Record<string, string> {
+  const merged: Partial<Record<CredentialKey, string>> = { ...readLocalCredentials() };
+  for (const key of CREDENTIAL_KEYS) {
+    const value = overrides[key]?.trim();
+    if (value) merged[key] = value;
+  }
+
   const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(readLocalCredentials())) {
+  for (const [key, value] of Object.entries(merged)) {
     out[CREDENTIAL_HEADERS[key as CredentialKey]] = value;
   }
   return out;
@@ -75,10 +90,14 @@ export function credentialHeaders(): Record<string, string> {
  * fetch with this browser's credentials attached. Every call the app makes to
  * its own API goes through here, so a new route cannot silently omit them.
  */
-export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+export async function apiFetch(
+  input: string,
+  init: RequestInit = {},
+  overrides: Partial<Record<CredentialKey, string>> = {},
+): Promise<Response> {
   return fetch(input, {
     ...init,
-    headers: { ...(init.headers ?? {}), ...credentialHeaders() },
+    headers: { ...(init.headers ?? {}), ...credentialHeaders(overrides) },
   });
 }
 

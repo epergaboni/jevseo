@@ -122,6 +122,29 @@ describe("headers", () => {
     expect(credentialHeaders()).toEqual({});
   });
 
+  test("an unsaved draft is sent in place of the stored key", async () => {
+    const { writeLocalCredential, credentialHeaders } = await load();
+    writeLocalCredential("TYPESAFE_API_KEY", "old");
+    expect(credentialHeaders({ TYPESAFE_API_KEY: "  typed  " })).toEqual({
+      "x-jevseo-typesafe-key": "typed",
+    });
+  });
+
+  test("an empty draft leaves the stored key alone", async () => {
+    const { writeLocalCredential, credentialHeaders } = await load();
+    writeLocalCredential("TYPESAFE_API_KEY", "stored");
+    expect(credentialHeaders({ TYPESAFE_API_KEY: "   " })).toEqual({
+      "x-jevseo-typesafe-key": "stored",
+    });
+  });
+
+  test("a draft works with nothing stored at all", async () => {
+    const { credentialHeaders } = await load();
+    expect(credentialHeaders({ TYPESAFE_API_KEY: "typed" })).toEqual({
+      "x-jevseo-typesafe-key": "typed",
+    });
+  });
+
   test("apiFetch attaches them without discarding the caller's own headers", async () => {
     const { writeLocalCredential, apiFetch } = await load();
     writeLocalCredential("TYPESAFE_API_KEY", "k");
@@ -142,6 +165,21 @@ describe("headers", () => {
       "x-jevseo-typesafe-key": "k",
     });
     expect(seen[0].method).toBe("POST");
+  });
+
+  test("apiFetch sends the draft the visitor has just typed", async () => {
+    const { writeLocalCredential, apiFetch } = await load();
+    writeLocalCredential("TYPESAFE_API_KEY", "old");
+
+    const seen: RequestInit[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      seen.push(init);
+      return new Response("{}");
+    });
+
+    await apiFetch("/api/settings/test", { method: "POST" }, { TYPESAFE_API_KEY: "typed" });
+
+    expect(seen[0].headers).toEqual({ "x-jevseo-typesafe-key": "typed" });
   });
 });
 
