@@ -30,7 +30,10 @@ export default defineConfig({
         "src/lib/judge/decisions.ts",
         "src/lib/crawl/pipeline.ts",
         "src/lib/crawl/crawler.ts",
+        // Table declarations, not logic. schema-parity.test.ts proves the two
+        // dialects agree, which is the only property worth asserting here.
         "src/lib/db/schema.ts",
+        "src/lib/db/schema.pg.ts",
       ],
       thresholds: { lines: 80, functions: 80, branches: 75, statements: 80 },
     },
