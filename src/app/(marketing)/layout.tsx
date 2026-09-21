@@ -8,6 +8,7 @@ const SCHEMA = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "JevSEO",
+  url: "https://jevseo.epergaboni.com",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Any",
   description:

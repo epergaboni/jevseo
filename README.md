@@ -8,6 +8,8 @@ scores plus a ranked list of fixes with the evidence behind each one.
 
 Roughly two seconds and £0.0001 per page. Runs locally; your keys stay on your machine.
 
+**Try it: [jevseo.epergaboni.com](https://jevseo.epergaboni.com)** — bring your own TypeSafe key; it stays in your browser.
+
 MIT licensed. Built by [epergaboni](https://epergaboni.com).
 
 ---
