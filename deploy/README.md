@@ -1,6 +1,27 @@
 # Deployment
 
-## Hosted at a sub-path (epergaboni.com/jevseo)
+## How this instance is actually deployed
+
+Live at **https://jevseo.epergaboni.com**, as a subdomain rather than a
+sub-path.
+
+The sub-path was attempted first and is not possible on this host. HostGator
+reports `Server: Apache` but the PHP SAPI is `litespeed`, and LiteSpeed has
+never supported `mod_proxy`. `deploy/check-proxy.php` confirmed both
+`mod_proxy` and `mod_proxy_http` are absent, so the `[P]` rewrite flag is
+ignored and no `.htaccess` can work around it. The header alone was
+misleading; the probe is what settled it.
+
+DNS, added in cPanel → Zone Editor, leaving every existing record untouched:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| CNAME | `jevseo` | `5631e41d6fb63d0a.vercel-dns-017.com.` |
+| TXT | `_vercel` | `vc-domain-verify=jevseo.epergaboni.com,…` |
+
+The apex `A` record still points at HostGator, so epergaboni.com is unaffected.
+
+## Hosted at a sub-path (kept for hosts that can proxy)
 
 The app is built with `NEXT_PUBLIC_BASE_PATH=/jevseo`, so Vercel serves it at
 `https://jevseo-gold.vercel.app/jevseo` and the root deliberately 404s. The

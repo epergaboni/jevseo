@@ -15,7 +15,7 @@ export function getTypeSafeClient(): TypeSafeClient {
   const apiKey = getCredential("TYPESAFE_API_KEY");
   if (!apiKey) {
     throw new MissingCredentialError(
-      "No TypeSafe API key is configured. Add one on the Settings page, or set TYPESAFE_API_KEY in the environment.",
+      "No TypeSafe API key is configured. Add your own on the Settings page — it stays in your browser and is never stored here.",
     );
   }
   const model = getCredential("TYPESAFE_MODEL") ?? "jev-latest";

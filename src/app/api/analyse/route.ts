@@ -54,7 +54,7 @@ async function POSTHandler(request: Request) {
     return fail(
       "No TypeSafe API key is configured.",
       401,
-      "Add one on the Settings page, or set TYPESAFE_API_KEY in the environment.",
+      "Add your own key on the Settings page. It is kept in your browser and never stored on this server.",
     );
   }
 

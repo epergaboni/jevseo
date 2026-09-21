@@ -25,7 +25,11 @@ async function POSTHandler(request: Request, { params }: { params: Promise<{ id:
 
   if (!hasTypeSafeCredentials()) {
     return NextResponse.json(
-      { ok: false, error: "No TypeSafe API key is configured.", hint: "Add one on the Settings page." },
+      {
+        ok: false,
+        error: "No TypeSafe API key is configured.",
+        hint: "Add your own key on the Settings page. It is kept in your browser and never stored on this server.",
+      },
       { status: 401 },
     );
   }

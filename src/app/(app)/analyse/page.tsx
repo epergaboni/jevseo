@@ -248,11 +248,11 @@ function EmptyState() {
           ranked list of what to fix and the evidence behind every judgment.
         </p>
         <p className="mt-4 text-sm text-ink-3">
-          No key configured yet? Add one on the{" "}
+          You need your own TypeSafe key. Add it on the{" "}
           <a href="/settings" className="text-accent underline underline-offset-2">
             settings page
-          </a>
-          .
+          </a>{" "}
+          — it stays in your browser and is never stored here.
         </p>
       </div>
     </Card>
