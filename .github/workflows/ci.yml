@@ -11,9 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # No version here on purpose: package.json's packageManager field pins
+      # pnpm, and specifying both makes the action fail with a version clash.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v5
         with:
