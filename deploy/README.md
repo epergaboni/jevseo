@@ -9,16 +9,25 @@ trivial.
 
 ### Step 1 — check HostGator can proxy at all
 
-This is the part that decides whether the approach works, so check it before
-changing anything. Upload a file containing `<?php phpinfo(); ?>` and search
-the output for `mod_proxy`, or run:
+This decides whether the approach works, so check before changing anything.
 
-```php
-<?php print_r(apache_get_modules()); ?>
-```
+Upload `deploy/check-proxy.php` to `public_html`, open
+`https://epergaboni.com/check-proxy.php`, and read the first line. It reports
+whether `mod_proxy` and `mod_proxy_http` are present, and separately whether
+the server can reach Vercel at all — a blocked outbound request stops a proxy
+just as dead as a missing module.
 
-You need both `mod_proxy` and `mod_proxy_http`. Shared hosting frequently
-disables them, and no amount of `.htaccess` gets around it.
+Delete the file afterwards.
+
+Known facts about this domain, checked on 21 September 2026:
+
+| | |
+| --- | --- |
+| Host | HostGator, `192.185.5.208` |
+| Nameservers | `ns8073.hostgator.com`, `ns8074.hostgator.com` |
+| Server | Apache (not LiteSpeed, which would rule the proxy out) |
+| `/jevseo` | currently 404, so the path is free |
+| `jevseo.epergaboni.com` | unused, so the fallback is available |
 
 ### Step 2 — apply the rules
 
@@ -36,9 +45,18 @@ If the proxy is not available, `jevseo.epergaboni.com` works with a single DNS
 record and no proxying:
 
 1. In Vercel: `vercel domains add jevseo.epergaboni.com`
-2. In HostGator DNS: add the CNAME Vercel gives you
+2. In HostGator cPanel → **Zone Editor** → `epergaboni.com` → **Add CNAME**:
+   name `jevseo`, value whatever Vercel prints (usually
+   `cname.vercel-dns.com`). Leave every existing record alone — the apex `A`
+   record keeps your main site on HostGator.
 3. Remove `NEXT_PUBLIC_BASE_PATH` from the Vercel project and redeploy, so the
-   app serves from the root again
+   app serves from the root again:
+   ```bash
+   vercel env rm NEXT_PUBLIC_BASE_PATH production --yes
+   vercel deploy --prod
+   ```
+4. DNS usually propagates in minutes; Vercel issues the certificate
+   automatically once it resolves.
 
 ### Fallback — Cloudflare
 
