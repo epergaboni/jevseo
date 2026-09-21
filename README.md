@@ -321,13 +321,28 @@ Levels describe **situations**, not grades. If it has a fixed number in it, it i
 
 ## Deploying
 
+A hosted instance runs **bring-your-own-key**: the visitor's credentials live
+in their own browser and travel as a request header. The server holds them for
+one request, never writes them anywhere and never logs them, and a
+request-supplied key always beats the host's — so nobody spends the host's
+credits. Deliberately do **not** set `TYPESAFE_API_KEY` in production unless
+you intend to fund every visitor's usage.
+
+Storage switches automatically: SQLite locally, Neon Postgres when
+`DATABASE_URL` is set. See [deploy/README.md](deploy/README.md) for serving
+the app at a sub-path and for the full environment variable list.
+
+### The short version
+
 ```bash
-vercel
-vercel env add TYPESAFE_API_KEY
-vercel --prod
+vercel link
+vercel integration add neon      # provisions DATABASE_URL
+vercel deploy --prod
 ```
 
-The analyse route runs on the Node.js runtime with `maxDuration = 120`.
+Crawls run on the Node.js runtime and finish inside a time budget rather than
+being killed at the platform's duration limit, so a long crawl records partial
+results and says so instead of leaving its status stuck.
 
 **Read [SECURITY.md](SECURITY.md) first if the deployment will be public.** This tool fetches
 arbitrary URLs on the server's behalf and spends your API credits on every request, and it ships

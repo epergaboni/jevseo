@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Serve JevSEO at epergaboni.com/jevseo from Vercel, while HostGator keeps
+# serving everything else on the domain.
+#
+# WHERE THIS GOES
+#   The public_html root on HostGator, appended to the existing .htaccess.
+#   Back the current file up first: cp .htaccess .htaccess.backup
+#
+# WILL IT WORK?
+#   Only if HostGator has mod_proxy AND mod_proxy_http enabled for your
+#   account. Shared hosting frequently does not. Check before you trust it:
+#
+#     php -r 'print_r(apache_get_modules());' | grep proxy
+#
+#   or upload a file containing <?php phpinfo(); ?> and search for
+#   "mod_proxy". If proxy modules are absent, the [P] flag is ignored and
+#   Apache returns 500 or 404. That is a hosting limitation, not a fix you
+#   can configure around — use the subdomain approach instead.
+#
+# WHY A PROXY AND NOT A REDIRECT
+#   A redirect would send visitors to the vercel.app URL and the address bar
+#   would stop saying epergaboni.com. A proxy keeps the URL intact.
+# ---------------------------------------------------------------------------
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Required for [P] to work behind most shared-hosting setups.
+  <IfModule mod_proxy.c>
+    SSLProxyEngine On
+    ProxyPreserveHost Off
+
+    # /jevseo and everything beneath it goes to Vercel. The paths line up
+    # one-to-one because the app is built with basePath=/jevseo, so no path
+    # rewriting is needed on either side.
+    RewriteRule ^jevseo$ https://jevseo-gold.vercel.app/jevseo [P,L]
+    RewriteRule ^jevseo/(.*)$ https://jevseo-gold.vercel.app/jevseo/$1 [P,L]
+  </IfModule>
+</IfModule>
+
+# Vercel serves the app's own assets under /jevseo/_next, which the rules
+# above already cover. Nothing else on the domain is affected.
