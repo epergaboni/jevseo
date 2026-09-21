@@ -1,0 +1,33 @@
+name: Bug report
+description: Something is broken.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact error message if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options: [Local dev, Self-hosted deployment, Other]
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: "22.x"
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste API keys, or the contents of `.jevseo.local.json`.**

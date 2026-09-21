@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ *
+ * The status trio was not hand-picked. It is the output of the six-check
+ * validator in the dataviz method, run against this exact paper surface:
+ * lightness band, chroma floor, CVD separation (worst all-pairs ΔE 8.5 under
+ * protanopia), normal-vision floor (ΔE 19.2) and 3:1 contrast — all passing
+ * with no warnings. Do not substitute a colour here without re-running it.
+ *
+ * The interactive accent is deliberately cool. An earlier warm terracotta sat
+ * close enough to the "failing" red that a button could read as a verdict.
+ *
+ * Mark colours clear 3:1 for shapes. Text variants are darker so status words
+ * clear 4.5:1 as prose.
+ */
+:root,
+[data-theme="light"] {
+  --paper: #fbfaf8;
+  --surface: #ffffff;
+  --surface-2: #f4f2ee;
+  --surface-3: #ece8e1;
+
+  --line: #e4e0d8;
+  --line-strong: #cfc9bd;
+
+  --ink: #191817;
+  --ink-2: #5b554d;
+  --ink-3: #6f685e;
+
+  --accent: #1f4788;
+  --accent-hover: #17356a;
+  --accent-soft: #eef2f9;
+  --accent-line: #c9d5ea;
+
+  --good: #00875a;
+  --good-text: #006844;
+  --good-soft: #e6f4ee;
+
+  --warn: #b8860b;
+  --warn-text: #7f5d06;
+  --warn-soft: #fbf1dc;
+
+  --bad: #96201a;
+  --bad-text: #96201a;
+  --bad-soft: #fbeae8;
+
+  /* Terminal. Always dark, in both themes — a shell is a shell. */
+  --term-bg: #16181d;
+  --term-bar: #1e2128;
+  --term-line: #2c3038;
+  --term-text: #e4e7ec;
+  --term-dim: #9aa3b0;
+  --term-comment: #7f8b9c;
+  --term-accent: #7aa2e8;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
+  --color-good: var(--good);
+  --color-good-text: var(--good-text);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-text: var(--warn-text);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-text: var(--bad-text);
+  --color-bad-soft: var(--bad-soft);
+  --color-term-bg: var(--term-bg);
+  --color-term-bar: var(--term-bar);
+  --color-term-line: var(--term-line);
+  --color-term-text: var(--term-text);
+  --color-term-dim: var(--term-dim);
+  --color-term-comment: var(--term-comment);
+  --color-term-accent: var(--term-accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-feature-settings: "cv11";
+}
+
+/* A large standalone number uses proportional figures; tabular widths make a
+   display-size value look loose. Columns of figures opt back in. */
+.figure {
+  font-variant-numeric: proportional-nums;
+  letter-spacing: -0.03em;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

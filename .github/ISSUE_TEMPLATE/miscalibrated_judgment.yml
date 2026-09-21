@@ -1,0 +1,43 @@
+name: Miscalibrated judgment
+description: A dimension scored something in a way you can show is wrong.
+labels: ["calibration"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful kind of issue. Concrete evidence that a rubric
+        is wrong is what improves the tool.
+  - type: input
+    id: dimension
+    attributes:
+      label: Which dimension
+      description: The label shown in the report, or its id from dimensions.ts.
+      placeholder: Snippet-ready passage / extractable_answer
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: What you analysed
+      description: The URL, or the draft text if it is not published.
+    validations:
+      required: true
+  - type: input
+    id: query
+    attributes:
+      label: Target query used
+  - type: textarea
+    id: returned
+    attributes:
+      label: What it returned
+      description: The value, the verdict text, and the confidence.
+      placeholder: "0.12 — “No passage survives being lifted out…”, confidence 0.91"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you think it should have said, and why
+      description: Quote the passage or section you believe the model misread.
+    validations:
+      required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: TypeSafe / Jev documentation
+    url: https://docs.typesafe.ai
+    about: Questions about the model itself, its primitives, pricing or limits.
+  - name: Security vulnerability
+    url: https://github.com/security/advisories
+    about: Report privately via the Security tab, not a public issue.

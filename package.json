@@ -1,0 +1,60 @@
+{
+  "name": "jevseo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source SEO, AEO and GEO scoring where the judgments are made by Jev, a System One decision model.",
+  "author": {
+    "name": "epergaboni",
+    "url": "https://epergaboni.com"
+  },
+  "license": "MIT",
+  "homepage": "https://epergaboni.com",
+  "keywords": [
+    "seo",
+    "aeo",
+    "geo",
+    "typesafe",
+    "jev",
+    "nextjs",
+    "answer-engine",
+    "generative-engine"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "next typegen && tsc --noEmit",
+    "check:dataforseo": "node scripts/check-dataforseo.mjs",
+    "serp:cache": "node scripts/serp-cache.mjs",
+    "icons": "node scripts/generate-icons.mjs"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0",
+    "cheerio": "^1.2.0",
+    "drizzle-orm": "^0.45.2",
+    "next": "16.3.5",
+    "postgres": "^3.4.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^5.0.1",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^5.0.1"
+  },
+  "packageManager": "pnpm@11.10.0"
+}

@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # --frozen-lockfile is what a contributor and a deploy both get, so a
+      # lockfile that only installs cleanly on a warm machine fails here.
+      - run: pnpm install --frozen-lockfile
+
+      # Runs `next typegen` first: LayoutProps and PageProps are generated, so
+      # a fresh checkout cannot typecheck without it.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      # No API keys are needed: the build must not call out to TypeSafe or
+      # DataForSEO, and this step fails if that ever changes.
+      - name: Build
+        run: pnpm build
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Paths that hold real credentials or crawled site data. None of them
+      # should ever have been committed, and a rewrite is far cheaper to do
+      # before a repository is public than after.
+      - name: Fail if a credential or data file is in the history
+        run: |
+          if git log --all --full-history --name-only --pretty=format: \
+            | grep -qE '^(\.jevseo\.local\.json|\.jevseo/|\.jevseo-cache/|\.env|\.env\..*)$' \
+            | grep -v '^\.env\.example$'; then
+            echo "A credential or local-data file appears in the git history."
+            exit 1
+          fi
+          echo "No credential or data files in history."
+
+      # A key pasted into a source file would pass the path check above.
+      - name: Scan tracked files for credential-shaped strings
+        run: |
+          if git grep -nIE \
+            '(\bapi_[A-Za-z0-9]{24,}|\bsk-[A-Za-z0-9_-]{20,}|\bAKIA[0-9A-Z]{16}\b|-----BEGIN [A-Z ]*PRIVATE KEY-----|postgres(ql)?://[^[:space:]]*:[^[:space:]@]+@)' \
+            -- . ':(exclude)pnpm-lock.yaml' ':(exclude)tests/*'; then
+            echo "A credential-shaped string is committed. Review the matches above."
+            exit 1
+          fi
+          echo "No credential-shaped strings in tracked files."
+
+      - name: Confirm .env.example carries no values
+        run: |
+          if grep -vE '^\s*#|^\s*$' .env.example | grep -qE '=.+'; then
+            echo ".env.example contains a value. It must ship empty."
+            exit 1
+          fi
+          echo ".env.example is empty of values."

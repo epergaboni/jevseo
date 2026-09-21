@@ -1,0 +1,46 @@
+name: Propose a dimension
+description: Suggest a new SEO, AEO or GEO judgment.
+labels: ["dimension"]
+body:
+  - type: dropdown
+    id: pillar
+    attributes:
+      label: Which pillar
+      multiple: true
+      options: [SEO, AEO, GEO]
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+      description: One narrow judgment. If it needs the word "and", it is probably two.
+    validations:
+      required: true
+  - type: textarea
+    id: rubric
+    attributes:
+      label: The levels
+      description: |
+        Concrete situations, worst first. Not grades — "Mostly fine" tells the
+        model nothing.
+      placeholder: |
+        0. …
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: why-not-a-rule
+    attributes:
+      label: Why this cannot be a deterministic rule
+      description: If it has a fixed threshold or a count, it belongs in rules.ts instead.
+    validations:
+      required: true
+  - type: textarea
+    id: remedy
+    attributes:
+      label: The remedy
+      description: What someone should actually do when this scores low.
+    validations:
+      required: true

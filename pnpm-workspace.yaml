@@ -1,0 +1,20 @@
+# Which dependencies may run native build scripts on install.
+#
+# All false on purpose, so `pnpm install` is deterministic and needs no build
+# toolchain on a fresh clone:
+#
+#   better-sqlite3 — an optional peer of drizzle-orm that pnpm pulls in. This
+#                    app uses node:sqlite (built into Node 22+) and never
+#                    loads it, so compiling it would be wasted work.
+#   esbuild        — ships prebuilt binaries as optional dependencies; the
+#                    install script only verifies them.
+#   sharp          — not used.
+#   unrs-resolver  — not used.
+#
+# Leaving any of these unset makes pnpm exit 1 with ERR_PNPM_IGNORED_BUILDS,
+# which is a failed install for everyone who clones the repo.
+allowBuilds:
+  better-sqlite3: false
+  esbuild: false
+  sharp: false
+  unrs-resolver: false
