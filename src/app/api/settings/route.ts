@@ -1,3 +1,4 @@
+import { withCredentials } from "@/lib/config/with-credentials";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -30,11 +31,11 @@ function state() {
   };
 }
 
-export async function GET() {
+async function GETHandler() {
   return NextResponse.json({ ok: true, ...state() });
 }
 
-export async function PUT(request: Request) {
+async function PUTHandler(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
@@ -65,7 +66,7 @@ export async function PUT(request: Request) {
   return NextResponse.json({ ok: true, ...state() });
 }
 
-export async function DELETE() {
+async function DELETEHandler() {
   try {
     clearCredentials();
   } catch (error) {
@@ -76,3 +77,12 @@ export async function DELETE() {
   }
   return NextResponse.json({ ok: true, ...state() });
 }
+
+
+export const GET = withCredentials(GETHandler);
+
+
+export const PUT = withCredentials(PUTHandler);
+
+
+export const DELETE = withCredentials(DELETEHandler);

@@ -169,14 +169,27 @@ describe("summary", () => {
   });
 });
 
-describe("postgres guard", () => {
-  test("refuses to fall back to a local file when DATABASE_URL is set", async () => {
+describe("driver selection", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  test("uses SQLite when no DATABASE_URL is set", async () => {
+    const { isPostgres } = await load();
+    expect(isPostgres()).toBe(false);
+  });
+
+  test("switches to Postgres when DATABASE_URL is set", async () => {
     vi.stubEnv("DATABASE_URL", "postgres://user:pass@host/db");
-    const { getDb, isPostgres } = await load();
+    const { isPostgres } = await load();
     expect(isPostgres()).toBe(true);
-    // Silently writing to a file that a deployment will never read is the
-    // failure this guard exists to prevent.
-    expect(() => getDb()).toThrow(/Postgres/i);
-    vi.unstubAllEnvs();
+  });
+
+  test("never touches the local file once Postgres is selected", async () => {
+    vi.stubEnv("DATABASE_URL", "postgres://user:pass@host/db");
+    const { getDb, ensureSchema } = await load();
+    // Writing to a file a deployment will never read, and losing the data on
+    // the next cold start, is the failure this guards against.
+    ensureSchema();
+    getDb();
+    expect(existsSync(join(dir, ".jevseo", "jevseo.db"))).toBe(false);
   });
 });

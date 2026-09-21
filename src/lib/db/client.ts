@@ -3,7 +3,10 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { drizzle as drizzleProxy } from "drizzle-orm/sqlite-proxy";
+import { neon } from "@neondatabase/serverless";
+import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
 import * as schema from "@/lib/db/schema";
+import * as pgSchema from "@/lib/db/schema.pg";
 
 /**
  * One database layer, two homes.
@@ -68,22 +71,66 @@ export function isPostgres(): boolean {
   return Boolean(process.env.DATABASE_URL);
 }
 
-let cached: ReturnType<typeof drizzleProxy<typeof schema>> | null = null;
+let cachedSqlite: ReturnType<typeof drizzleProxy<typeof schema>> | null = null;
+let cachedPg: ReturnType<typeof drizzleNeon<typeof pgSchema>> | null = null;
 
-export function getDb() {
-  if (isPostgres()) {
-    throw new Error(
-      "DATABASE_URL is set, but the Postgres driver is not wired up yet. Unset it to use the local SQLite file, or finish the Postgres adapter in src/lib/db/client.ts.",
-    );
-  }
-  cached ??= drizzleProxy<typeof schema>(
+/**
+ * Neon over HTTP rather than a TCP pool.
+ *
+ * A serverless function is short-lived and there can be many at once, so a
+ * connection pool is the wrong shape: connections outlive the request that
+ * opened them and the database runs out. The HTTP driver issues one stateless
+ * request per query, which is what this workload actually does.
+ *
+ * Initialised lazily, because `neon()` throws on a missing DATABASE_URL and
+ * Next evaluates module scope at build time — an eager call would break
+ * `next build` on the first deploy, before the integration is provisioned.
+ */
+function postgresDb() {
+  cachedPg ??= drizzleNeon(neon(process.env.DATABASE_URL!), { schema: pgSchema });
+  return cachedPg;
+}
+
+function sqliteDb() {
+  cachedSqlite ??= drizzleProxy<typeof schema>(
     async (sqlText, params, method) => execute(sqlText, params, method),
     { schema },
   );
-  return cached;
+  return cachedSqlite;
 }
+
+/**
+ * The database for this environment.
+ *
+ * The two drivers expose the same query-builder surface over schemas that a
+ * parity test keeps identical, so callers do not branch. The return type is
+ * widened deliberately: pinning it to one dialect would make every query file
+ * dialect-specific for no benefit.
+ */
+export function getDb() {
+  return (isPostgres() ? postgresDb() : sqliteDb()) as ReturnType<typeof sqliteDb>;
+}
+
+/**
+ * Nothing to close: the HTTP driver is stateless and holds no socket. Kept as
+ * a named no-op so callers do not grow a connection-lifecycle habit that the
+ * SQLite path would not honour either.
+ */
+export async function closeDb(): Promise<void> {}
 
 /** Raw handle, for migrations and anything Drizzle should not own. */
 export function rawSqlite(): DatabaseSync {
   return connection();
+}
+
+/**
+ * Raw Neon handle for DDL.
+ *
+ * Migrations are plain SQL and have no business going through the query
+ * builder — and the two drivers disagree about how to run raw statements
+ * (`run` versus `execute`), which the widened return type of getDb() would
+ * hide until runtime.
+ */
+export function rawPostgres() {
+  return neon(process.env.DATABASE_URL!);
 }

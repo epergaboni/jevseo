@@ -33,11 +33,11 @@
     "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@typesafe-ai/sdk": "^0.6.0",
     "cheerio": "^1.2.0",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.5",
-    "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",

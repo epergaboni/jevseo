@@ -21,8 +21,8 @@ export default function SettingsPage() {
   return (
     <main className="mx-auto w-full max-w-4xl px-6 py-10 sm:px-10">
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-3xl font-semibold tracking-tight text-ink">Settings</h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
           Credentials are read from the environment first, then from{" "}
           <code className="rounded bg-surface-muted px-1 py-0.5 font-mono text-xs">
             {CREDENTIAL_STORE_FILE}

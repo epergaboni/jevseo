@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/client/credential-store";
 import { useState } from "react";
 import { Report } from "@/components/report";
 import { Card, buttonClass, sizeClass } from "@/components/primitives";
@@ -31,7 +32,7 @@ export default function AnalysePage() {
     setError(null);
 
     try {
-      const res = await fetch("/api/analyse", {
+      const res = await apiFetch("/api/analyse", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

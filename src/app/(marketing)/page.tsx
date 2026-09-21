@@ -70,18 +70,6 @@ function Hero() {
             assistants — and ranks what to fix.
           </p>
 
-          <div className="mt-6 max-w-xl rounded-xl border border-accent-line bg-accent-soft p-5">
-            <p className="text-sm font-semibold uppercase tracking-wide text-accent">
-              Why that matters
-            </p>
-            <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
-              Ask a chatbot to score your page and it writes a number the way it writes a sentence.
-              Ask twice, get two answers, with no way to tell a firm verdict from a guess. Jev
-              commits to a position on a rubric you can read, and reports its own certainty
-              separately — so you know which findings to act on and which to check yourself.
-            </p>
-          </div>
-
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link href="/analyse" className={`${buttonClass.primary} ${sizeClass.lg}`}>
               Analyse a page
@@ -99,7 +87,21 @@ function Hero() {
 
         <div className="lg:pt-14">
           <CopyBlock code={INSTALL} label="Get started" />
-          <p className="mt-3 text-sm text-ink-3">
+
+          <div className="mt-5 rounded-xl border border-accent-line bg-accent-soft p-5">
+            <p className="text-sm font-semibold uppercase tracking-wide text-accent">
+              Why that matters
+            </p>
+            <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+              Ask a chatbot to score your page and it writes a number the way it writes a
+              sentence. Ask twice, get two answers, with no way to tell a firm verdict from a
+              guess. Jev commits to a position on a rubric you can read, and reports its own
+              certainty separately — so you know which findings to act on and which to check
+              yourself.
+            </p>
+          </div>
+
+          <p className="mt-4 text-sm text-ink-3">
             Node 22+ and a{" "}
             <a
               href="https://console.typesafe.ai"

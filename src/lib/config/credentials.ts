@@ -8,6 +8,7 @@ import {
   type CredentialSource,
   type CredentialStatus,
 } from "@/lib/config/credential-schema";
+import { requestCredential } from "@/lib/config/request-credentials";
 
 /**
  * Credential resolution for a tool that is run locally far more often than it
@@ -74,12 +75,20 @@ function envValue(key: CredentialKey): string | undefined {
   return raw && raw.trim() !== "" ? raw.trim() : undefined;
 }
 
-/** Resolve one credential. Environment first, then the local store. */
+/**
+ * Resolve one credential: the visitor's own key first, then the environment,
+ * then the local file.
+ *
+ * The request wins deliberately. On a public instance a visitor must spend
+ * their own credits, never the host's, so a supplied key always takes
+ * precedence over whatever the host configured as a fallback.
+ */
 export function getCredential(key: CredentialKey): string | undefined {
-  return envValue(key) ?? readStore()[key];
+  return requestCredential(key) ?? envValue(key) ?? readStore()[key];
 }
 
 export function sourceOf(key: CredentialKey): CredentialSource {
+  if (requestCredential(key)) return "request";
   if (envValue(key)) return "env";
   if (readStore()[key]) return "local";
   return "none";

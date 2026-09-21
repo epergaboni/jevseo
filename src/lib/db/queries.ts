@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { ensureSchema } from "@/lib/db/migrate";
+import { ensureSchemaReady } from "@/lib/db/migrate";
 import {
   LOCAL_OWNER,
   cannibalPairs,
@@ -24,15 +24,20 @@ function ownerId(): string {
   return LOCAL_OWNER;
 }
 
-function db() {
-  ensureSchema();
+/**
+ * Async because Postgres migrations cannot run synchronously. Every query
+ * goes through it, so a cold serverless instance brings its own schema up
+ * rather than failing on a missing table.
+ */
+async function db() {
+  await ensureSchemaReady();
   return getDb();
 }
 
 /* --------------------------------------------------------------- projects */
 
 export async function listProjects(): Promise<(Project & { lastCrawlAt: Date | null; pageCount: number })[]> {
-  const rows = await db()
+  const rows = await (await db())
     .select({
       project: projects,
       lastCrawlAt: sql<number | null>`(SELECT MAX(created_at) FROM crawls WHERE crawls.project_id = ${projects.id})`,
@@ -50,7 +55,7 @@ export async function listProjects(): Promise<(Project & { lastCrawlAt: Date | n
 }
 
 export async function getProject(id: string): Promise<Project | null> {
-  const rows = await db()
+  const rows = await (await db())
     .select()
     .from(projects)
     .where(and(eq(projects.id, id), eq(projects.ownerId, ownerId())))
@@ -59,7 +64,7 @@ export async function getProject(id: string): Promise<Project | null> {
 }
 
 export async function createProject(input: Omit<NewProject, "id" | "ownerId">): Promise<Project> {
-  const rows = await db()
+  const rows = await (await db())
     .insert(projects)
     .values({ ...input, ownerId: ownerId() })
     .returning();
@@ -67,23 +72,26 @@ export async function createProject(input: Omit<NewProject, "id" | "ownerId">): 
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  await db().delete(projects).where(and(eq(projects.id, id), eq(projects.ownerId, ownerId())));
+  await (await db())
+    .delete(projects).where(and(eq(projects.id, id), eq(projects.ownerId, ownerId())));
 }
 
 /* ----------------------------------------------------------------- crawls */
 
 export async function createCrawl(projectId: string, maxPages: number) {
-  const rows = await db().insert(crawls).values({ projectId, maxPages }).returning();
+  const rows = await (await db())
+    .insert(crawls).values({ projectId, maxPages }).returning();
   return rows[0];
 }
 
 export async function getCrawl(id: string) {
-  const rows = await db().select().from(crawls).where(eq(crawls.id, id)).limit(1);
+  const rows = await (await db())
+    .select().from(crawls).where(eq(crawls.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function latestCrawl(projectId: string) {
-  const rows = await db()
+  const rows = await (await db())
     .select()
     .from(crawls)
     .where(eq(crawls.projectId, projectId))
@@ -93,7 +101,7 @@ export async function latestCrawl(projectId: string) {
 }
 
 export async function listCrawls(projectId: string, limit = 20) {
-  return db()
+  return (await db())
     .select()
     .from(crawls)
     .where(eq(crawls.projectId, projectId))
@@ -123,7 +131,7 @@ export interface PageRow {
 
 /** The inventory view: one row per page with its score and its decision. */
 export async function listPagesForCrawl(crawlId: string): Promise<PageRow[]> {
-  const rows = await db()
+  const rows = await (await db())
     .select({
       id: pages.id,
       url: pages.url,
@@ -150,7 +158,7 @@ export async function listPagesForCrawl(crawlId: string): Promise<PageRow[]> {
 }
 
 export async function getPageReport(pageId: string) {
-  const rows = await db()
+  const rows = await (await db())
     .select({ page: pages, report: pageReports, decision: pageDecisions })
     .from(pages)
     .leftJoin(pageReports, eq(pageReports.pageId, pages.id))
@@ -163,7 +171,7 @@ export async function getPageReport(pageId: string) {
 /* ------------------------------------------------------------------- plan */
 
 export async function listPlan(projectId: string) {
-  return db()
+  return (await db())
     .select()
     .from(planItems)
     .where(eq(planItems.projectId, projectId))
@@ -174,12 +182,13 @@ export async function setPlanItemStatus(
   id: string,
   status: "todo" | "doing" | "done" | "dismissed",
 ) {
-  await db().update(planItems).set({ status }).where(eq(planItems.id, id));
+  await (await db())
+    .update(planItems).set({ status }).where(eq(planItems.id, id));
 }
 
 export async function listCannibalPairs(projectId: string) {
   const a = { id: pages.id, url: pages.url, title: pages.title };
-  return db()
+  return (await db())
     .select({
       id: cannibalPairs.id,
       overlap: cannibalPairs.overlap,
@@ -192,8 +201,8 @@ export async function listCannibalPairs(projectId: string) {
     .orderBy(desc(cannibalPairs.overlap))
     .then(async (rows) => {
       if (rows.length === 0) return [];
-      const all = await db()
-        .select(a)
+      const all = await (await db())
+    .select(a)
         .from(pages)
         .where(eq(pages.projectId, projectId));
       const byId = new Map(all.map((p) => [p.id, p]));
@@ -209,7 +218,7 @@ export async function listCannibalPairs(projectId: string) {
 
 /** Score movement per URL across crawls, for the tracking view. */
 export async function listSnapshots(projectId: string, limit = 500) {
-  return db()
+  return (await db())
     .select()
     .from(snapshots)
     .where(eq(snapshots.projectId, projectId))
@@ -218,7 +227,7 @@ export async function listSnapshots(projectId: string, limit = 500) {
 }
 
 export async function projectSummary(projectId: string) {
-  const rows = await db()
+  const rows = await (await db())
     .select({
       pages: sql<number>`COUNT(DISTINCT ${pages.id})`,
       analysed: sql<number>`COUNT(DISTINCT ${pageReports.id})`,

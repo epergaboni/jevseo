@@ -56,7 +56,13 @@ export const CREDENTIAL_META: Record<CredentialKey, CredentialMeta> = {
   },
 };
 
-export type CredentialSource = "env" | "local" | "none";
+/**
+ * Where a credential came from.
+ *
+ * "request" is the bring-your-own-key case: the visitor's browser sent it as
+ * a header and the server holds it only for the life of that request.
+ */
+export type CredentialSource = "request" | "env" | "local" | "none";
 
 export interface CredentialStatus {
   key: CredentialKey;

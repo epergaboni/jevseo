@@ -8,6 +8,7 @@ import { fetchCompetitors } from "@/lib/serp/dataforseo";
 import { hasTypeSafeCredentials } from "@/lib/typesafe/client";
 import { buildFixes, composePillars, overallScore } from "@/lib/score/compose";
 import type { AnalysisReport } from "@/lib/types";
+import { withCredentials } from "@/lib/config/with-credentials";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -33,7 +34,7 @@ function fail(message: string, status: number, hint?: string) {
   return NextResponse.json({ ok: false, error: { message, hint: hint ?? null } }, { status });
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const started = Date.now();
 
   let body: unknown;
@@ -161,3 +162,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, report });
 }
+
+
+export const POST = withCredentials(POSTHandler);

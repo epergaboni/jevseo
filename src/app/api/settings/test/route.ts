@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { testTypeSafeConnection } from "@/lib/typesafe/client";
 import { testDataForSeoConnection } from "@/lib/serp/dataforseo";
+import { withCredentials } from "@/lib/config/with-credentials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const Schema = z.object({ service: z.enum(["typesafe", "dataforseo"]) });
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
@@ -28,3 +29,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json(result);
 }
+
+
+export const POST = withCredentials(POSTHandler);

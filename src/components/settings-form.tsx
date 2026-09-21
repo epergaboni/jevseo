@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Card, buttonClass, sizeClass } from "@/components/primitives";
-import type { CredentialKey, CredentialMeta, CredentialStatus } from "@/lib/config/credential-schema";
-
-const FIELD =
-  "w-full rounded-lg border border-line bg-surface px-4 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-3/70 focus:border-accent disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-70";
+import {
+  apiFetch,
+  clearLocalCredentials,
+  getCredentialServerSnapshot,
+  getCredentialSnapshot,
+  maskCredential,
+  subscribeToCredentials,
+  writeLocalCredential,
+} from "@/lib/client/credential-store";
+import { CREDENTIAL_KEYS, type CredentialKey, type CredentialMeta, type CredentialStatus } from "@/lib/config/credential-schema";
 
 export interface SettingsState {
   statuses: CredentialStatus[];
@@ -16,106 +22,133 @@ export interface SettingsState {
 
 type TestResult = { ok: boolean; detail: string; hint?: string };
 
+const FIELD =
+  "w-full rounded-lg border border-line bg-surface px-4 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-3/70 focus:border-accent";
+
 const SERVICES = [
   {
     id: "typesafe" as const,
-    name: "TypeSafe (Jev)",
+    name: "TypeSafe",
+    required: true,
     blurb:
-      "Required. Every semantic judgment on this site is a typed question answered by Jev. Without a key, nothing runs.",
+      "Required. Every semantic judgment on every page is answered by Jev. Without a key, nothing runs.",
     href: "https://console.typesafe.ai",
     hrefLabel: "console.typesafe.ai",
-    cost: "Input tokens only, at $0.042 per million. A typical page analysis costs about 4,000 tokens — a hundredth of a penny.",
+    cost: "Charged on input tokens only, at $0.042 per million. A page costs roughly 4,000 tokens — about a hundredth of a penny.",
   },
   {
     id: "dataforseo" as const,
     name: "DataForSEO",
+    required: false,
     blurb:
-      "Optional. Pulls the live top 10 for your target query so Jev can judge format, coverage and differentiation against what actually ranks.",
+      "Optional. Fetches the live top ten for your target query so Jev can judge format, coverage and differentiation against what actually ranks. Everything else works without it.",
     href: "https://app.dataforseo.com/api-access",
     hrefLabel: "app.dataforseo.com/api-access",
-    cost: "Charged per SERP request by DataForSEO. Connection tests here are free — they read your account balance and nothing else.",
+    cost: "About $0.002 per lookup, then cached for 24 hours so re-running costs nothing. Testing the connection here is free.",
   },
 ];
 
 export function SettingsForm({ initial }: { initial: SettingsState }) {
-  const [state, setState] = useState<SettingsState>(initial);
+  const [serverStatuses] = useState(initial.statuses);
+  const local = useSyncExternalStore(
+    subscribeToCredentials,
+    getCredentialSnapshot,
+    getCredentialServerSnapshot,
+  );
   const [drafts, setDrafts] = useState<Partial<Record<CredentialKey, string>>>({});
   const [reveal, setReveal] = useState<Partial<Record<CredentialKey, boolean>>>({});
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ tone: "good" | "bad"; text: string } | null>(null);
   const [tests, setTests] = useState<Partial<Record<string, TestResult | "pending">>>({});
 
-  async function save(event: React.FormEvent) {
+  function save(event: React.FormEvent) {
     event.preventDefault();
-    setSaving(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(drafts),
-      });
-      const payload = (await res.json()) as ({ ok: true } & SettingsState) | { ok: false; error: string };
-      if (!payload.ok) {
-        setMessage({ tone: "bad", text: payload.error });
-        return;
-      }
-      setState(payload);
-      setDrafts({});
-      setTests({});
-      setMessage({ tone: "good", text: "Saved. New requests will use these straight away — no restart needed." });
-    } finally {
-      setSaving(false);
+    for (const [key, value] of Object.entries(drafts)) {
+      writeLocalCredential(key as CredentialKey, value);
     }
+    setDrafts({});
+    setTests({});
+    setMessage({
+      tone: "good",
+      text: "Saved in this browser. Nothing was sent to the server.",
+    });
   }
 
-  async function clearAll() {
-    if (!confirm("Remove every credential from the local store? Environment variables are not affected.")) return;
-    const res = await fetch("/api/settings", { method: "DELETE" });
-    const payload = (await res.json()) as ({ ok: true } & SettingsState) | { ok: false; error: string };
-    if (payload.ok) {
-      setState(payload);
-      setDrafts({});
-      setTests({});
-      setMessage({ tone: "good", text: "Local credential store deleted." });
-    } else {
-      setMessage({ tone: "bad", text: payload.error });
-    }
+  function clearAll() {
+    if (!confirm("Remove every key from this browser?")) return;
+    clearLocalCredentials();
+    setDrafts({});
+    setTests({});
+    setMessage({ tone: "good", text: "Cleared from this browser." });
   }
 
   async function runTest(service: "typesafe" | "dataforseo") {
     setTests((t) => ({ ...t, [service]: "pending" }));
-    const res = await fetch("/api/settings/test", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ service }),
-    });
-    const result = (await res.json()) as TestResult;
-    setTests((t) => ({ ...t, [service]: result }));
+    try {
+      const res = await apiFetch("/api/settings/test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ service }),
+      });
+      const result = (await res.json()) as TestResult;
+      setTests((t) => ({ ...t, [service]: result }));
+    } catch {
+      setTests((t) => ({
+        ...t,
+        [service]: { ok: false, detail: "The request never reached the server." },
+      }));
+    }
   }
 
-  const statusOf = (key: CredentialKey) => state.statuses.find((s) => s.key === key)!;
+  const serverStatus = (key: CredentialKey) => serverStatuses.find((s) => s.key === key);
 
   return (
     <>
-      {!state.canWrite && (
-        <div className="mb-6 rounded-lg border border-warn/30 bg-warn-soft px-4 py-3 text-sm text-warn-text">
-          This instance is running in production, so credentials cannot be written from the browser. Set them as
-          environment variables on the host instead.
-        </div>
-      )}
+      <Card className="mb-6 border-accent-line bg-accent-soft p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-accent">
+          Where your key is kept
+        </h2>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+          Whatever you enter here is stored in <strong className="font-medium text-ink">your
+          own browser</strong> and attached to each request as a header. This server holds it for
+          the length of one request, never writes it to disk, never puts it in a database and
+          never logs it.
+        </p>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
+          Being straight with you about the limits: the key does travel to this server, because
+          that is how it reaches TypeSafe. Anything in browser storage can also be read by script
+          running on this page. If neither is acceptable,{" "}
+          <a
+            href="https://github.com/epergaboni/jevseo"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="font-medium text-accent underline underline-offset-2"
+          >
+            run it locally
+          </a>{" "}
+          — that is what it was built for.
+        </p>
+      </Card>
 
       <form onSubmit={save} className="flex flex-col gap-5">
         {SERVICES.map((service) => {
-          const keys = (Object.keys(state.meta) as CredentialKey[]).filter(
-            (k) => state.meta[k].service === service.id,
-          );
+          const keys = CREDENTIAL_KEYS.filter((k) => initial.meta[k].service === service.id);
           const test = tests[service.id];
 
           return (
-            <Card key={service.id}>
-              <div className="mb-1 flex items-baseline justify-between gap-3">
-                <h2 className="text-base font-semibold">{service.name}</h2>
+            <Card key={service.id} className="p-6">
+              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
+                <h2 className="flex items-baseline gap-2.5 text-base font-semibold text-ink">
+                  {service.name}
+                  <span
+                    className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                      service.required
+                        ? "bg-good-soft text-good-text"
+                        : "bg-surface-2 text-ink-3"
+                    }`}
+                  >
+                    {service.required ? "Required" : "Optional"}
+                  </span>
+                </h2>
                 <a
                   href={service.href}
                   target="_blank"
@@ -125,24 +158,40 @@ export function SettingsForm({ initial }: { initial: SettingsState }) {
                   {service.hrefLabel}
                 </a>
               </div>
-              <p className="text-sm text-ink-2">{service.blurb}</p>
-              <p className="mt-1 text-xs text-ink-2">{service.cost}</p>
+              <p className="text-sm leading-relaxed text-ink-2">{service.blurb}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-ink-3">{service.cost}</p>
 
-              <div className="mt-4 flex flex-col gap-4">
+              <div className="mt-5 flex flex-col gap-4">
                 {keys.map((key) => {
-                  const meta = state.meta[key];
-                  const status = statusOf(key);
-                  const fromEnv = status.source === "env";
+                  const meta = initial.meta[key];
+                  const stored = local[key];
+                  const server = serverStatus(key);
                   const shown = reveal[key] === true;
 
                   return (
                     <div key={key} className="flex flex-col gap-1.5">
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <label htmlFor={key} className="text-sm font-medium">
+                        <label htmlFor={key} className="text-sm font-medium text-ink">
                           {meta.label}
                           {meta.required && <span className="ml-1 text-bad-text">*</span>}
                         </label>
-                        <SourceTag status={status} />
+                        {(
+                          <span
+                            className={`rounded border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${
+                              stored
+                                ? "border-good/30 bg-good-soft text-good-text"
+                                : server?.configured
+                                  ? "border-line bg-surface-2 text-ink-3"
+                                  : "border-line text-ink-3"
+                            }`}
+                          >
+                            {stored
+                              ? "in this browser"
+                              : server?.configured
+                                ? "provided by host"
+                                : "not set"}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex gap-2">
@@ -151,45 +200,39 @@ export function SettingsForm({ initial }: { initial: SettingsState }) {
                           type={meta.secret && !shown ? "password" : "text"}
                           autoComplete="off"
                           spellCheck={false}
-                          disabled={fromEnv || !state.canWrite}
                           value={drafts[key] ?? ""}
                           onChange={(e) => setDrafts((d) => ({ ...d, [key]: e.target.value }))}
                           placeholder={
-                            fromEnv
-                              ? "Set by an environment variable"
-                              : status.configured
-                                ? `${status.preview} — type to replace`
+                            stored
+                              ? `${meta.secret ? maskCredential(stored) : stored} — type to replace`
+                              : server?.configured
+                                ? "This host supplies one; enter your own to use it instead"
                                 : "Not set"
                           }
                           className={FIELD}
                         />
-                        {meta.secret && !fromEnv && state.canWrite && (
+                        {meta.secret && (
                           <button
                             type="button"
                             onClick={() => setReveal((r) => ({ ...r, [key]: !shown }))}
-                            className="shrink-0 rounded-lg border border-line px-3 text-xs text-ink-2 hover:text-foreground"
+                            className="shrink-0 rounded-lg border border-line px-3.5 text-xs text-ink-2 transition-colors hover:border-line-strong hover:text-ink"
                           >
                             {shown ? "Hide" : "Show"}
                           </button>
                         )}
                       </div>
-
-                      <p className="text-xs text-ink-2">
-                        {fromEnv
-                          ? `Coming from the ${key} environment variable, which always wins over this file.`
-                          : meta.help}
-                      </p>
+                      <p className="text-xs leading-relaxed text-ink-3">{meta.help}</p>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3">
+              <div className="mt-5 flex flex-wrap items-start gap-3 border-t border-line pt-4">
                 <button
                   type="button"
                   onClick={() => void runTest(service.id)}
                   disabled={test === "pending"}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium transition-colors hover:border-accent disabled:opacity-50"
+                  className={`${buttonClass.secondary} ${sizeClass.sm}`}
                 >
                   {test === "pending" ? "Testing…" : "Test connection"}
                 </button>
@@ -213,37 +256,26 @@ export function SettingsForm({ initial }: { initial: SettingsState }) {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={saving || !state.canWrite || Object.keys(drafts).length === 0}
+            disabled={Object.keys(drafts).length === 0}
             className={`${buttonClass.primary} ${sizeClass.md}`}
           >
-            {saving ? "Saving…" : "Save credentials"}
+            Save in this browser
           </button>
           <button
             type="button"
-            onClick={() => void clearAll()}
-            disabled={!state.canWrite}
+            onClick={clearAll}
             className={`${buttonClass.quiet} ${sizeClass.md}`}
           >
-            Clear local store
+            Clear
           </button>
         </div>
 
         {message && (
-          <p className={`text-sm ${message.tone === "good" ? "text-good-text" : "text-bad-text"}`}>{message.text}</p>
+          <p className={`text-sm ${message.tone === "good" ? "text-good-text" : "text-bad-text"}`}>
+            {message.text}
+          </p>
         )}
       </form>
     </>
-  );
-}
-
-function SourceTag({ status }: { status: CredentialStatus }) {
-  const label =
-    status.source === "env" ? "environment" : status.source === "local" ? "local file" : "not set";
-  const tone =
-    status.source === "none" ? "border-line text-ink-2" : "border-good/30 bg-good-soft text-good-text";
-  return (
-    <span className={`rounded border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${tone}`}>
-      {label}
-    </span>
   );
 }

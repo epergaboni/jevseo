@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/client/credential-store";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -77,7 +78,7 @@ export function ProjectWorkspace({
 
     const tick = async () => {
       try {
-        const res = await fetch(`/api/crawls/${crawl.id}`, { cache: "no-store" });
+        const res = await apiFetch(`/api/crawls/${crawl.id}`, { cache: "no-store" });
         const payload = (await res.json()) as { ok: boolean; crawl: Crawl; terminal: boolean };
         if (cancelled || !payload.ok) return;
         setCrawl(payload.crawl);
@@ -98,7 +99,7 @@ export function ProjectWorkspace({
     setStarting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/crawl`, {
+      const res = await apiFetch(`/api/projects/${projectId}/crawl`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ maxPages }),
@@ -179,6 +180,12 @@ export function ProjectWorkspace({
         {crawl?.status === "failed" && (
           <p className="mt-4 rounded-lg border border-bad/30 bg-bad-soft px-4 py-3 text-sm text-bad-text">
             Crawl failed: {crawl.error ?? "unknown error"}
+          </p>
+        )}
+
+        {crawl?.status === "complete" && crawl.error && (
+          <p className="mt-4 rounded-lg border border-warn/30 bg-warn-soft px-4 py-3 text-sm leading-relaxed text-warn-text">
+            {crawl.error}
           </p>
         )}
 
@@ -291,7 +298,7 @@ function Plan({ items }: { items: PlanItem[] }) {
   async function setStatus(id: string, status: "done" | "dismissed" | "todo") {
     setBusy(id);
     try {
-      await fetch(`/api/plan/${id}`, {
+      await apiFetch(`/api/plan/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ status }),

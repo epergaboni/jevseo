@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/client/credential-store";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Card, buttonClass, sizeClass } from "@/components/primitives";
@@ -20,7 +21,7 @@ export function NewProjectForm() {
     setPending(true);
     setError(null);
     try {
-      const res = await fetch("/api/projects", {
+      const res = await apiFetch("/api/projects", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createProject, listProjects } from "@/lib/db/queries";
+import { withCredentials } from "@/lib/config/with-credentials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,11 +14,11 @@ const CreateSchema = z.object({
   languageCode: z.string().trim().max(8).optional(),
 });
 
-export async function GET() {
+async function GETHandler() {
   return NextResponse.json({ ok: true, projects: await listProjects() });
 }
 
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
@@ -64,3 +65,9 @@ export async function POST(request: Request) {
     );
   }
 }
+
+
+export const GET = withCredentials(GETHandler);
+
+
+export const POST = withCredentials(POSTHandler);

@@ -1,7 +1,7 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { ensureSchema } from "@/lib/db/migrate";
+import { ensureSchemaReady } from "@/lib/db/migrate";
 import { crawls, pageDecisions, pageReports, pages, planItems, snapshots, cannibalPairs } from "@/lib/db/schema";
 import { crawlSite, type CrawledPage } from "@/lib/crawl/crawler";
 import { evaluateRules } from "@/lib/extract/rules";
@@ -23,6 +23,22 @@ import type { AnalysisInput, Fix, PageFacts } from "@/lib/types";
 const ANALYSIS_CONCURRENCY = 4;
 const DECISION_CONCURRENCY = 4;
 
+/**
+ * How long the run may take before it wraps up early.
+ *
+ * A serverless function is killed at its maxDuration with no chance to write
+ * anything, which would leave the crawl row stuck at "analysing" forever and
+ * the UI polling a status that never changes. Finishing deliberately, a
+ * little short of the limit, means partial results are saved and reported
+ * honestly. Locally there is no such ceiling, so the budget is generous.
+ */
+function timeBudgetMs(): number {
+  const configured = Number(process.env.CRAWL_BUDGET_SECONDS);
+  if (Number.isFinite(configured) && configured > 0) return configured * 1000;
+  // Vercel sets VERCEL=1; 270s leaves 30s of headroom under the 300s cap.
+  return process.env.VERCEL ? 270_000 : 45 * 60_000;
+}
+
 /** Run tasks with a bounded worker pool, preserving input order in the output. */
 async function pool<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>) {
   const results = new Array<R>(items.length);
@@ -39,8 +55,12 @@ async function pool<T, R>(items: T[], limit: number, fn: (item: T, index: number
 }
 
 export async function runCrawl(crawlId: string, project: Project): Promise<void> {
-  ensureSchema();
+  await ensureSchemaReady();
   const db = getDb();
+
+  const deadline = Date.now() + timeBudgetMs();
+  const outOfTime = () => Date.now() > deadline;
+  let ranShort = false;
 
   const setStatus = async (patch: Partial<typeof crawls.$inferInsert>) => {
     await db.update(crawls).set(patch).where(eq(crawls.id, crawlId));
@@ -103,6 +123,10 @@ export async function runCrawl(crawlId: string, project: Project): Promise<void>
     let analysed = 0;
 
     const analyses = await pool(analysable, ANALYSIS_CONCURRENCY, async (row) => {
+      if (outOfTime()) {
+        ranShort = true;
+        return null;
+      }
       const input: AnalysisInput = {
         mode: "url",
         url: row.page.url,
@@ -163,6 +187,10 @@ export async function runCrawl(crawlId: string, project: Project): Promise<void>
     const titles = ok.map((a) => a.row.page.facts.title ?? a.row.page.url);
 
     const decisions = await pool(ok, DECISION_CONCURRENCY, async (entry, index) => {
+      if (outOfTime()) {
+        ranShort = true;
+        return null;
+      }
       try {
         const others = titles.filter((_, i) => i !== index);
         const decision = await decidePageAction(
@@ -193,9 +221,11 @@ export async function runCrawl(crawlId: string, project: Project): Promise<void>
     await setStatus({ inputTokens: tokens });
 
     // ------------------------------------------------------- cannibalisation
-    const candidates = buildCannibalCandidates(
-      ok.map((a) => ({ id: a.row.id, title: a.row.page.facts.title ?? a.row.page.url })),
-    );
+    const candidates = outOfTime()
+      ? []
+      : buildCannibalCandidates(
+          ok.map((a) => ({ id: a.row.id, title: a.row.page.facts.title ?? a.row.page.url })),
+        );
     if (candidates.length > 0) {
       try {
         for (const pair of await detectCannibalisation(candidates)) {
@@ -248,7 +278,14 @@ export async function runCrawl(crawlId: string, project: Project): Promise<void>
       }
     }
 
-    await setStatus({ status: "complete", finishedAt: new Date(), inputTokens: tokens });
+    await setStatus({
+      status: "complete",
+      finishedAt: new Date(),
+      inputTokens: tokens,
+      error: ranShort
+        ? `Stopped early at the ${Math.round(timeBudgetMs() / 1000)}s limit. ${analysed} of ${crawled.length} pages were scored; run it again to continue, or crawl fewer pages at a time.`
+        : null,
+    });
   } catch (error) {
     await setStatus({
       status: "failed",
